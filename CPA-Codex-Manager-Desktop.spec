@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import os
 import sys
 from pathlib import Path
 
@@ -13,6 +14,8 @@ if not macos_icon.exists():
 windows_icon = project_root / "assets" / "icon.ico"
 is_macos = sys.platform == "darwin"
 is_windows = sys.platform.startswith("win")
+build_mode = os.environ.get("APP_BUILD_MODE", "onedir").strip().lower()
+is_onefile = build_mode == "onefile"
 
 datas = [
     (str(project_root / "templates"), "templates"),
@@ -59,8 +62,10 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz,
     a.scripts,
-    [],
-    exclude_binaries=True,
+    a.binaries if is_onefile else [],
+    a.zipfiles if is_onefile else [],
+    a.datas if is_onefile else [],
+    exclude_binaries=not is_onefile,
     name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
@@ -75,16 +80,19 @@ exe = EXE(
     icon=str(windows_icon) if is_windows and windows_icon.exists() else None,
 )
 
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
-    strip=False,
-    upx=False,
-    upx_exclude=[],
-    name=app_name,
-)
+if is_onefile:
+    coll = exe
+else:
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.zipfiles,
+        a.datas,
+        strip=False,
+        upx=False,
+        upx_exclude=[],
+        name=app_name,
+    )
 
 if is_macos:
     app = BUNDLE(
